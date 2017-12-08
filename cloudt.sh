@@ -5,16 +5,17 @@ export PATH
 #=================================================
 #	System Required: CentOS/Debian/Ubuntu
 #	Description: Cloud Torrent
-#	Version: 1.1.3
+#	Version: 1.2.2
 #	Author: Toyo
 #	Blog: https://doub.io/wlzy-12/
 #=================================================
 
-file="/etc/cloudtorrent"
-ct_file="/etc/cloudtorrent/cloud-torrent"
-dl_file="/etc/cloudtorrent/downloads"
-ct_config="/etc/cloudtorrent/cloud-torrent.json"
-ct_conf="/etc/cloudtorrent/cloud-torrent.conf"
+file="/usr/local/cloudtorrent"
+ct_file="/usr/local/cloudtorrent/cloud-torrent"
+dl_file="/usr/local/cloudtorrent/downloads"
+ct_config="/usr/local/cloudtorrent/cloud-torrent.json"
+ct_conf="/usr/local/cloudtorrent/cloud-torrent.conf"
+ct_log="/tmp/ct.log"
 IncomingPort="50007"
 
 Green_font_prefix="\033[32m" && Red_font_prefix="\033[31m" && Green_background_prefix="\033[42;37m" && Red_background_prefix="\033[41;37m" && Font_color_suffix="\033[0m"
@@ -120,23 +121,33 @@ Installation_dependency(){
 }
 Write_config(){
 	cat > ${ct_conf}<<-EOF
-port=${ct_port}
-user=${ct_user}
-passwd=${ct_passwd}
+host = ${ct_host}
+port = ${ct_port}
+user = ${ct_user}
+passwd = ${ct_passwd}
 EOF
 }
 Read_config(){
 	[[ ! -e ${ct_conf} ]] && echo -e "${Error} Cloud Torrent 配置文件不存在 !" && exit 1
-	port=`cat ${ct_conf}|grep "port"|awk -F "=" '{print $NF}'`
-	user=`cat ${ct_conf}|grep "user"|awk -F "=" '{print $NF}'`
-	passwd=`cat ${ct_conf}|grep "passwd"|awk -F "=" '{print $NF}'`
+	host=`cat ${ct_conf}|grep "host = "|awk -F "host = " '{print $NF}'`
+	port=`cat ${ct_conf}|grep "port = "|awk -F "port = " '{print $NF}'`
+	user=`cat ${ct_conf}|grep "user = "|awk -F "user = " '{print $NF}'`
+	passwd=`cat ${ct_conf}|grep "passwd = "|awk -F "passwd = " '{print $NF}'`
+}
+Set_host(){
+	echo -e "请输入 Cloud Torrent 监听域名或IP（当你要绑定域名前，记得先做好域名解析，目前只支持http://访问，不要写http://，只写域名！）"
+	stty erase '^H' && read -p "(默认: 0.0.0.0 监听网卡所有IP):" ct_host
+	[[ -z "${ct_host}" ]] && ct_host="0.0.0.0"
+	echo && echo "========================"
+	echo -e "	主机 : ${Red_background_prefix} ${ct_host} ${Font_color_suffix}"
+	echo "========================" && echo
 }
 Set_port(){
 	while true
 		do
-		echo -e "请输入 Cloud Torrent 监听端口 [1-65535]"
-		stty erase '^H' && read -p "(默认端口: 8000):" ct_port
-		[[ -z "$ct_port" ]] && ct_port="8000"
+		echo -e "请输入 Cloud Torrent 监听端口 [1-65535]（如果是绑定的域名，那么建议80端口）"
+		stty erase '^H' && read -p "(默认端口: 80):" ct_port
+		[[ -z "${ct_port}" ]] && ct_port="80"
 		expr ${ct_port} + 0 &>/dev/null
 		if [[ $? -eq 0 ]]; then
 			if [[ ${ct_port} -ge 1 ]] && [[ ${ct_port} -le 65535 ]]; then
@@ -150,7 +161,7 @@ Set_port(){
 		else
 			echo "输入错误, 请输入正确的端口。"
 		fi
-		done
+	done
 }
 Set_user(){
 	echo "请输入 Cloud Torrent 用户名"
@@ -168,10 +179,11 @@ Set_user(){
 	echo "========================" && echo
 }
 Set_conf(){
+	Set_host
 	Set_port
-	stty erase '^H' && read -p "是否设置 用户名和密码 ? [Y/n] :" yn
-	[[ -z "${yn}" ]] && yn="y"
-	if [[ $yn == [Yy] ]]; then
+	stty erase '^H' && read -p "是否设置 用户名和密码 ? [y/N] :" yn
+	[[ -z "${yn}" ]] && yn="n"
+	if [[ ${yn} == [Yy] ]]; then
 		Set_user
 	else
 		ct_user="" && ct_passwd=""
@@ -232,9 +244,9 @@ Restart_ct(){
 	/etc/init.d/cloudt start
 }
 Log_ct(){
-	[[ ! -e ${file}"/ct.log" ]] && echo -e "${Error} Cloud Torrent 日志文件不存在 !" && exit 1
+	[[ ! -e "${ct_log}" ]] && echo -e "${Error} Cloud Torrent 日志文件不存在 !" && exit 1
 	echo && echo -e "${Tip} 按 ${Red_font_prefix}Ctrl+C${Font_color_suffix} 终止查看日志" && echo
-	tail -f /etc/cloudtorrent/ct.log
+	tail -f "${ct_log}"
 }
 Update_ct(){
 	check_installed_status
@@ -268,25 +280,32 @@ Uninstall_ct(){
 View_ct(){
 	check_installed_status
 	Read_config
-	ip=$(wget -qO- -t1 -T2 ipinfo.io/ip)
-	if [[ -z "${ip}" ]]; then
-		ip=$(wget -qO- -t1 -T2 api.ip.sb/ip)
-		if [[ -z "${ip}" ]]; then
-			ip=$(wget -qO- -t1 -T2 members.3322.org/dyndns/getip)
-			if [[ -z "${ip}" ]]; then
-				ip="VPS_IP"
+	if [[ "${host}" == "0.0.0.0" ]]; then
+		host=$(wget -qO- -t1 -T2 ipinfo.io/ip)
+		if [[ -z "${host}" ]]; then
+			host=$(wget -qO- -t1 -T2 api.ip.sb/ip)
+			if [[ -z "${host}" ]]; then
+				host=$(wget -qO- -t1 -T2 members.3322.org/dyndns/getip)
+				if [[ -z "${host}" ]]; then
+					host="VPS_IP"
+				fi
 			fi
 		fi
+	fi
+	if [[ "${port}" == "80" ]]; then
+		port=""
+	else
+		port=":${port}"
 	fi
 	if [[ -z ${user} ]]; then
 		clear && echo "————————————————" && echo
 		echo -e " 你的 Cloud Torrent 信息 :" && echo
-		echo -e " 地址\t: ${Green_font_prefix}http://${ip}:${port}${Font_color_suffix}"
+		echo -e " 地址\t: ${Green_font_prefix}http://${host}${port}${Font_color_suffix}"
 		echo && echo "————————————————"
 	else
 		clear && echo "————————————————" && echo
 		echo -e " 你的 Cloud Torrent 信息 :" && echo
-		echo -e " 地址\t: ${Green_font_prefix}http://${ip}:${port}${Font_color_suffix}"
+		echo -e " 地址\t: ${Green_font_prefix}http://${host}${port}${Font_color_suffix}"
 		echo -e " 用户\t: ${Green_font_prefix}${user}${Font_color_suffix}"
 		echo -e " 密码\t: ${Green_font_prefix}${passwd}${Font_color_suffix}"
 		echo && echo "————————————————"
