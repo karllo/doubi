@@ -1,22 +1,22 @@
 #!/bin/bash
 # chkconfig: 2345 90 10
-# description: GoFlyway
+# description: Lightsocks
 
 ### BEGIN INIT INFO
-# Provides:          GoFlyway
+# Provides:          Lightsocks
 # Required-Start:    $network $syslog
 # Required-Stop:     $network
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Lightweight HTTP proxy tool
-# Description:       Start or stop the GoFlyway
+# Short-Description: A light tunnel proxy that helps you bypass firewalls
+# Description:       Start or stop the Lightsocks
 ### END INIT INFO
 
-NAME="GoFlyway"
-NAME_BIN="goflyway"
-FILE="/usr/local/goflyway"
-CONF="${FILE}/goflyway.conf"
-LOG="${FILE}/goflyway.log"
+NAME="Lightsocks"
+NAME_BIN="lightsocks-server"
+FILE="/usr/local/lightsocks"
+CONF=$(echo ${HOME})"/.lightsocks.conf"
+LOG="/usr/local/lightsocks/lightsocks.log"
 
 Green_font_prefix="\033[32m" && Red_font_prefix="\033[31m" && Green_background_prefix="\033[42;37m" && Red_background_prefix="\033[41;37m" && Font_color_suffix="\033[0m"
 Info="${Green_font_prefix}[信息]${Font_color_suffix}"
@@ -32,9 +32,11 @@ check_running(){
 	fi
 }
 read_config(){
-	[[ ! -e ${CONF} ]] && echo -e "${Error} GoFlyway 配置文件不存在 !" && exit 1
-	port=`cat ${CONF}|grep "port"|awk -F "=" '{print $NF}'`
-	passwd=`cat ${CONF}|grep "passwd"|awk -F "=" '{print $NF}'`
+	[[ ! -e ${CONF} ]] && echo -e "${Error} Lightsocks 配置文件不存在 !" && exit 1
+	user_all=$(cat ${CONF}|sed "1d;$d")
+	[[ -z ${user_all} ]] && echo -e "${Error} Lightsocks 配置文件中用户配置为空 !" && exit 1
+	port=$(echo "${user_all}"|grep "listen"|awk -F ': ' '{print $NF}'|sed 's/\"//g;s/://g;s/,//g')
+	password=$(echo "${user_all}"|grep "password"|awk -F ': ' '{print $NF}'|sed 's/\"//g')
 }
 do_start(){
 	check_running
@@ -44,7 +46,7 @@ do_start(){
 		read_config
 		cd ${FILE}
 		echo -e "${Info} $NAME 启动中..."
-		nohup ./goflyway -k="${passwd}" -l=":${port}" > "${LOG}" 2>&1 &
+		nohup ./lightsocks-server >> "${LOG}" 2>&1 &
 		sleep 2s
 		check_running
 		if [[ $? -eq 0 ]]; then

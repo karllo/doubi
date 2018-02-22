@@ -5,12 +5,12 @@ export PATH
 #=================================================
 #	System Required: CentOS/Debian/Ubuntu
 #	Description: GoFlyway
-#	Version: 1.0.1
+#	Version: 1.0.3
 #	Author: Toyo
 #	Blog: https://doub.io/goflyway-jc2/
 #=================================================
 
-sh_ver="1.0.1"
+sh_ver="1.0.3"
 Folder="/usr/local/goflyway"
 File="/usr/local/goflyway/goflyway"
 CONF="/usr/local/goflyway/goflyway.conf"
@@ -48,7 +48,7 @@ check_pid(){
 	PID=$(ps -ef| grep "goflyway"| grep -v grep| grep -v ".sh"| grep -v "init.d"| grep -v "service"| awk '{print $2}')
 }
 check_new_ver(){
-	new_ver=$(wget -qO- "https://github.com/coyove/goflyway/tags"| grep "/goflyway/releases/tag/"| head -n 1| awk -F "/tag/" '{print $2}'| sed 's/\">//')
+	new_ver=$(wget -qO- "https://github.com/coyove/goflyway/tags"|grep "/goflyway/releases/tag/"|grep -v '\-apk'|head -n 1|awk -F "/tag/" '{print $2}'|sed 's/\">//')
 	if [[ -z ${new_ver} ]]; then
 		echo -e "${Error} GoFlyway 最新版本获取失败，请手动获取最新版本号[ https://github.com/coyove/goflyway/releases ]"
 		stty erase '^H' && read -p "请输入版本号 [ 格式如 v1.0.0 ] :" new_ver
@@ -194,6 +194,9 @@ Start_goflyway(){
 	check_pid
 	[[ ! -z ${PID} ]] && echo -e "${Error} GoFlyway 正在运行，请检查 !" && exit 1
 	/etc/init.d/goflyway start
+	sleep 1s
+	check_pid
+	[[ ! -z ${PID} ]] && View_goflyway
 }
 Stop_goflyway(){
 	check_installed_status
@@ -206,6 +209,9 @@ Restart_goflyway(){
 	check_pid
 	[[ ! -z ${PID} ]] && /etc/init.d/goflyway stop
 	/etc/init.d/goflyway start
+	sleep 1s
+	check_pid
+	[[ ! -z ${PID} ]] && View_goflyway
 }
 Update_goflyway(){
 	check_installed_status
@@ -248,12 +254,26 @@ View_goflyway(){
 			fi
 		fi
 	fi
+	link_qr
 	clear && echo "————————————————" && echo
 	echo -e " GoFlyway 信息 :" && echo
 	echo -e " 地址\t: ${Green_font_prefix}${ip}${Font_color_suffix}"
 	echo -e " 端口\t: ${Green_font_prefix}${port}${Font_color_suffix}"
 	echo -e " 密码\t: ${Green_font_prefix}${passwd}${Font_color_suffix}"
+	echo -e "${link}"
+	echo -e "${Tip} 链接仅适用于Windows系统的 Goflyway Tools 客户端（https://doub.io/dbrj-11/）。"
 	echo && echo "————————————————"
+}
+urlsafe_base64(){
+	date=$(echo -n "$1"|base64|sed ':a;N;s/\n//g;ta'|sed 's/=//g;s/+/-/g;s/\//_/g')
+	echo -e "${date}"
+}
+link_qr(){
+	PWDbase64=$(urlsafe_base64 "${passwd}")
+	base64=$(urlsafe_base64 "${ip}:${port}:${PWDbase64}")
+	url="goflyway://${base64}"
+	QRcode="http://doub.pw/qr/qr.php?text=${url}"
+	link=" 链接\t: ${Red_font_prefix}${url}${Font_color_suffix} \n 二维码 : ${Red_font_prefix}${QRcode}${Font_color_suffix} \n "
 }
 View_Log(){
 	check_installed_status
@@ -280,18 +300,10 @@ Set_iptables(){
 	if [[ ${release} == "centos" ]]; then
 		service iptables save
 		chkconfig --level 2345 iptables on
-	elif [[ ${release} == "debian" ]]; then
+	else
 		iptables-save > /etc/iptables.up.rules
-		cat > /etc/network/if-pre-up.d/iptables<<-EOF
-#!/bin/bash
-/sbin/iptables-restore < /etc/iptables.up.rules
-EOF
+		echo -e '#!/bin/bash\n/sbin/iptables-restore < /etc/iptables.up.rules' > /etc/network/if-pre-up.d/iptables
 		chmod +x /etc/network/if-pre-up.d/iptables
-	elif [[ ${release} == "ubuntu" ]]; then
-		iptables-save > /etc/iptables.up.rules
-		echo -e "\npre-up iptables-restore < /etc/iptables.up.rules
-post-down iptables-save > /etc/iptables.up.rules" >> /etc/network/interfaces
-		chmod +x /etc/network/interfaces
 	fi
 }
 Update_Shell(){
