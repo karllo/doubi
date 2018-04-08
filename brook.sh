@@ -48,7 +48,7 @@ check_installed_status(){
 }
 check_crontab_installed_status(){
 	if [[ ! -e ${Crontab_file} ]]; then
-		echo -e "${Error} Crontab 没有安装，开始安装..." && exit 1
+		echo -e "${Error} Crontab 没有安装，开始安装..."
 		if [[ ${release} == "centos" ]]; then
 			yum install crond -y
 		else
@@ -68,7 +68,7 @@ check_new_ver(){
 	brook_new_ver=`wget -qO- https://github.com/txthinking/brook/tags| grep "/txthinking/brook/releases/tag/"| head -n 1| awk -F "/tag/" '{print $2}'| sed 's/\">//'`
 	if [[ -z ${brook_new_ver} ]]; then
 		echo -e "${Error} Brook 最新版本获取失败，请手动获取最新版本号[ https://github.com/txthinking/brook/releases ]"
-		stty erase '^H' && read -p "请输入版本号 [ 格式是日期 , 如 v20170330 ] :" brook_new_ver
+		stty erase '^H' && read -p "请输入版本号 [ 格式是日期 , 如 v20180401 ] :" brook_new_ver
 		[[ -z "${brook_new_ver}" ]] && echo "取消..." && exit 1
 	else
 		echo -e "${Info} 检测到 Brook 最新版本为 [ ${brook_new_ver} ]"
@@ -474,13 +474,13 @@ View_Log(){
 debian_View_user_connection_info(){
 	format_1=$1
 	Read_config
-	IP_total=`netstat -anp |grep 'ESTABLISHED' |grep 'brook' |grep 'tcp6' |awk '{print $5}' |awk -F ":" '{print $1}' |sort -u |wc -l`
+	IP_total=`netstat -anp |grep 'ESTABLISHED' |grep 'brook' |grep 'tcp6' |awk '{print $5}' |awk -F ":" '{print $1}' |sort -u |grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" |wc -l`
 	echo -e "用户总数: ${Green_background_prefix} "${user_all_num}" ${Font_color_suffix} 链接IP总数: ${Green_background_prefix} "${IP_total}" ${Font_color_suffix} "
 	
 	for((integer = 1; integer <= ${user_all_num}; integer++))
 	do
 		user_port=$(echo "${user_all}"|sed -n "${integer}p"|awk '{print $1}')
-		user_IP_1=`netstat -anp |grep 'ESTABLISHED' |grep 'brook' |grep 'tcp6' |grep ":${user_port} " |awk '{print $5}' |awk -F ":" '{print $1}' |sort -u`
+		user_IP_1=`netstat -anp |grep 'ESTABLISHED' |grep 'brook' |grep 'tcp6' |grep ":${user_port} " |awk '{print $5}' |awk -F ":" '{print $1}' |sort -u |grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}"`
 		if [[ -z ${user_IP_1} ]]; then
 			user_IP_total="0"
 			echo -e "端口: ${Green_font_prefix}"${user_port}"${Font_color_suffix}\t 链接IP总数: ${Green_font_prefix}"${user_IP_total}"${Font_color_suffix}\t 当前链接IP: "
@@ -501,13 +501,13 @@ debian_View_user_connection_info(){
 centos_View_user_connection_info(){
 	format_1=$1
 	Read_config
-	IP_total=`netstat -anp |grep 'ESTABLISHED' |grep 'brook' |grep 'tcp' | grep '::ffff:' |awk '{print $5}' |awk -F ":" '{print $4}' |sort -u |wc -l`
+	IP_total=`netstat -anp |grep 'ESTABLISHED' |grep 'brook' |grep 'tcp' | grep '::ffff:' |awk '{print $5}' |awk -F ":" '{print $4}' |sort -u |grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}" |wc -l`
 	echo -e "用户总数: ${Green_background_prefix} "${user_all_num}" ${Font_color_suffix} 链接IP总数: ${Green_background_prefix} "${IP_total}" ${Font_color_suffix} "
 	
 	for((integer = 1; integer <= ${user_all_num}; integer++))
 	do
 		user_port=$(echo "${user_all}"|sed -n "${integer}p"|awk '{print $1}')
-		user_IP_1=`netstat -anp |grep 'ESTABLISHED' |grep 'brook' |grep 'tcp' |grep ":${user_port} "|grep '::ffff:' |awk '{print $5}' |awk -F ":" '{print $4}' |sort -u`
+		user_IP_1=`netstat -anp |grep 'ESTABLISHED' |grep 'brook' |grep 'tcp' |grep ":${user_port} "|grep '::ffff:' |awk '{print $5}' |awk -F ":" '{print $4}' |sort -u |grep -E -o "([0-9]{1,3}[\.]){3}[0-9]{1,3}"`
 		if [[ -z ${user_IP_1} ]]; then
 			user_IP_total="0"
 			echo -e "端口: ${Green_font_prefix}"${user_port}"${Font_color_suffix}\t 链接IP总数: ${Green_font_prefix}"${user_IP_total}"${Font_color_suffix}\t 当前链接IP: "
